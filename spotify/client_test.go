@@ -211,8 +211,8 @@ func TestAddToQueue(t *testing.T) {
 		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			called = true
 
-			if r.URL.Path != "/v1/me/player/add-to-queue" {
-				t.Errorf("Got %q, expected /v1/me/player/add-to-queue", r.URL.Path)
+			if r.URL.Path != "/v1/me/player/queue" {
+				t.Errorf("Got %q, expected /v1/me/player/queue", r.URL.Path)
 			}
 			if uri := r.URL.Query().Get("uri"); uri != "foo" {
 				t.Errorf("Got %q, expected foo", uri)
@@ -240,8 +240,8 @@ func TestAddToQueue(t *testing.T) {
 		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			called = true
 
-			if r.URL.Path != "/v1/me/player/add-to-queue" {
-				t.Errorf("Got %q, expected /v1/me/player/add-to-queue", r.URL.Path)
+			if r.URL.Path != "/v1/me/player/queue" {
+				t.Errorf("Got %q, expected /v1/me/player/queue", r.URL.Path)
 			}
 			if uri := r.URL.Query().Get("uri"); uri != "foo" {
 				t.Errorf("Got %q, expected foo", uri)
