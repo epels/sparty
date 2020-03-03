@@ -6,6 +6,7 @@ import (
 	"net/http"
 )
 
+// @todo: Add some basic auth.
 type handler struct {
 	http.Handler
 
