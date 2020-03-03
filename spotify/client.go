@@ -1,3 +1,4 @@
+// Package spotify exports an interface to the Spotify Web API.
 package spotify
 
 import (
@@ -6,15 +7,18 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net/http"
+	"net/url"
+	"strings"
 	"time"
 )
 
 type client struct {
-	httpc                   *http.Client
-	apiBaseURL              string
-	authBaseURL, authHeader string
-	token                   *token
+	httpc                    *http.Client
+	apiBaseURL, authBaseURL  string
+	authHeader, refreshToken string
+	token                    *token
 
 	// nowFunc returns the current local time. Can be used to instrument tests.
 	nowFunc func() time.Time
@@ -29,20 +33,21 @@ type token struct {
 // guards against the next apiRequest still failing due to an expired token.
 const expiryThreshold = 5 * time.Second
 
-func NewClient(cID, cSecret string) *client {
+func NewClient(cID, cSecret, refreshToken string) *client {
 	ah := "Basic " + base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%s:%s", cID, cSecret)))
 	return &client{
 		httpc: &http.Client{
 			Timeout: 5 * time.Second,
 		},
-		apiBaseURL:  "https://api.spotify.com",
-		authBaseURL: "https://accounts.spotify.com",
-		authHeader:  ah,
-		nowFunc:     time.Now,
+		apiBaseURL:   "https://api.spotify.com",
+		authBaseURL:  "https://accounts.spotify.com",
+		authHeader:   ah,
+		refreshToken: refreshToken,
+		nowFunc:      time.Now,
 	}
 }
 
-func (c *client) refreshToken() error {
+func (c *client) bearerToken() error {
 	if c.token != nil && c.token.bearer != "" {
 		// Already have a token, so no-op if it doesn't expire in the near
 		// future.
@@ -51,12 +56,15 @@ func (c *client) refreshToken() error {
 		}
 	}
 
-	u := c.authBaseURL + "/api/token?grant_type=client_credentials"
-	req, err := http.NewRequest(http.MethodPost, u, nil)
+	vals := url.Values{}
+	vals.Set("grant_type", "refresh_token")
+	vals.Set("refresh_token", c.refreshToken)
+	req, err := http.NewRequest(http.MethodPost, c.authBaseURL+"/api/token", strings.NewReader(vals.Encode()))
 	if err != nil {
 		return fmt.Errorf("net/http: NewRequest: %s", err)
 	}
 	req.Header.Set("Authorization", c.authHeader)
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
 	res, err := c.httpc.Do(req)
 	if err != nil {
@@ -81,9 +89,11 @@ func (c *client) refreshToken() error {
 	return nil
 }
 
+// apiRequest sends a request and gets the response. Data is optional, but if
+// set, it will be JSON encoded and written to the request body.
 func (c *client) apiRequest(method, path string, data interface{}) (*http.Response, error) {
-	if err := c.refreshToken(); err != nil {
-		return nil, fmt.Errorf("refreshToken: %s", err)
+	if err := c.bearerToken(); err != nil {
+		return nil, fmt.Errorf("bearerToken: %s", err)
 	}
 
 	var ct string
@@ -101,7 +111,7 @@ func (c *client) apiRequest(method, path string, data interface{}) (*http.Respon
 	if err != nil {
 		return nil, fmt.Errorf("net/http: NewRequest: %s", err)
 	}
-	req.Header.Set("Authorization", "Basic "+c.token.bearer)
+	req.Header.Set("Authorization", "Bearer "+c.token.bearer)
 	req.Header.Set("Content-Type", ct)
 
 	res, err := c.httpc.Do(req)
@@ -109,4 +119,22 @@ func (c *client) apiRequest(method, path string, data interface{}) (*http.Respon
 		return nil, fmt.Errorf("net/http: Client.Do: %s", err)
 	}
 	return res, nil
+}
+
+// AddToQueue adds an item, defined by uri, to the end of the user's current
+// playback queue.
+func (c *client) AddToQueue(uri string) error {
+	res, err := c.apiRequest(http.MethodPost, "/v1/me/player/add-to-queue?uri="+uri, nil)
+	if err != nil {
+		return fmt.Errorf("apiRequest: %s", err)
+	}
+	defer func() {
+		_ = res.Body.Close()
+	}()
+
+	if res.StatusCode != http.StatusNoContent {
+		rs, _ := ioutil.ReadAll(res.Body)
+		return fmt.Errorf("unexpected response status %d with body %s", res.StatusCode, rs)
+	}
+	return nil
 }
