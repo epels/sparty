@@ -12,6 +12,7 @@ type handler struct {
 
 	errLog, infoLog *log.Logger
 	jq              jobqueue
+	token           string
 }
 
 type jobqueue interface {
@@ -22,7 +23,7 @@ type jobqueue interface {
 
 var _ http.Handler = (*handler)(nil) // Compile-time assurance.
 
-func New(errLog, infoLog *log.Logger, jq jobqueue) *handler {
+func New(errLog, infoLog *log.Logger, jq jobqueue, token string) *handler {
 	h := handler{
 		errLog:  errLog,
 		infoLog: infoLog,
@@ -30,10 +31,21 @@ func New(errLog, infoLog *log.Logger, jq jobqueue) *handler {
 	}
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("/enqueue", h.method(http.MethodPost, h.log(h.enqueue)))
+	mux.HandleFunc("/enqueue", h.method(http.MethodPost, h.auth(token, h.log(h.enqueue))))
 	h.Handler = mux
 
 	return &h
+}
+
+func (h *handler) auth(token string, next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if t := r.Header.Get("Authorization"); t != "Token "+token {
+			h.infoLog.Printf("Failed auth attempt from %q @ %q", r.UserAgent(), r.RemoteAddr)
+			http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
+			return
+		}
+		next(w, r)
+	}
 }
 
 func (h *handler) log(next http.HandlerFunc) http.HandlerFunc {
@@ -61,13 +73,13 @@ func (h *handler) enqueue(w http.ResponseWriter, r *http.Request) {
 	uri := r.URL.Query().Get("uri")
 	if uri == "" {
 		w.WriteHeader(http.StatusBadRequest)
-		_, _ = fmt.Fprint(w, "Missing required parameter: uri")
+		_, _ = fmt.Fprintln(w, "Missing required parameter: uri")
 		return
 	}
 
 	if err := h.jq.Put(uri); err != nil {
 		h.errLog.Printf("%T: Put: %s", h.jq, err)
-		w.WriteHeader(http.StatusInternalServerError)
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
 

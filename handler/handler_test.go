@@ -12,6 +12,8 @@ import (
 	"github.com/epels/sparty/internal/mock"
 )
 
+const authToken = "secret"
+
 func TestEnqueue(t *testing.T) {
 	noopLogger := log.New(ioutil.Discard, "", 0)
 	noopJobqueue := mock.Jobqueue{
@@ -23,8 +25,9 @@ func TestEnqueue(t *testing.T) {
 	t.Run("Bad method", func(t *testing.T) {
 		rec := httptest.NewRecorder()
 		req := httptest.NewRequest(http.MethodGet, "/enqueue?uri=foo", nil)
+		setAuth(t, req)
 
-		New(noopLogger, noopLogger, noopJobqueue).ServeHTTP(rec, req)
+		New(noopLogger, noopLogger, noopJobqueue, authToken).ServeHTTP(rec, req)
 
 		if rec.Code != http.StatusMethodNotAllowed {
 			t.Errorf("Got %d, expected 405", rec.Code)
@@ -34,17 +37,43 @@ func TestEnqueue(t *testing.T) {
 	t.Run("Validation error", func(t *testing.T) {
 		rec := httptest.NewRecorder()
 		req := httptest.NewRequest(http.MethodPost, "/enqueue", nil)
+		setAuth(t, req)
 
-		New(noopLogger, noopLogger, noopJobqueue).ServeHTTP(rec, req)
+		New(noopLogger, noopLogger, noopJobqueue, authToken).ServeHTTP(rec, req)
 
 		if rec.Code != http.StatusBadRequest {
 			t.Errorf("Got %d, expected 400", rec.Code)
 		}
 	})
 
+	t.Run("Unauthorized", func(t *testing.T) {
+		t.Run("No token", func(t *testing.T) {
+			rec := httptest.NewRecorder()
+			req := httptest.NewRequest(http.MethodPost, "/enqueue?uri=foo", nil)
+
+			New(noopLogger, noopLogger, noopJobqueue, authToken).ServeHTTP(rec, req)
+
+			if rec.Code != http.StatusUnauthorized {
+				t.Errorf("Got %d, expected 403", rec.Code)
+			}
+		})
+		t.Run("Incorrect token", func(t *testing.T) {
+			rec := httptest.NewRecorder()
+			req := httptest.NewRequest(http.MethodPost, "/enqueue?uri=foo", nil)
+			req.Header.Set("Authorization", "Token bad")
+
+			New(noopLogger, noopLogger, noopJobqueue, authToken).ServeHTTP(rec, req)
+
+			if rec.Code != http.StatusUnauthorized {
+				t.Errorf("Got %d, expected 403", rec.Code)
+			}
+		})
+	})
+
 	t.Run("Jobqueue failure", func(t *testing.T) {
 		rec := httptest.NewRecorder()
 		req := httptest.NewRequest(http.MethodPost, "/enqueue?uri=foo", nil)
+		setAuth(t, req)
 
 		var sb strings.Builder
 		errLog := log.New(&sb, "", log.LstdFlags)
@@ -53,7 +82,7 @@ func TestEnqueue(t *testing.T) {
 				return errors.New("some error")
 			},
 		}
-		New(errLog, noopLogger, jq).ServeHTTP(rec, req)
+		New(errLog, noopLogger, jq, authToken).ServeHTTP(rec, req)
 
 		if rec.Code != http.StatusInternalServerError {
 			t.Errorf("Got %d, expected 500", rec.Code)
@@ -66,6 +95,7 @@ func TestEnqueue(t *testing.T) {
 	t.Run("OK", func(t *testing.T) {
 		rec := httptest.NewRecorder()
 		req := httptest.NewRequest(http.MethodPost, "/enqueue?uri=foo", nil)
+		setAuth(t, req)
 
 		var called bool
 		jq := mock.Jobqueue{
@@ -79,7 +109,7 @@ func TestEnqueue(t *testing.T) {
 				return nil
 			},
 		}
-		New(noopLogger, noopLogger, jq).ServeHTTP(rec, req)
+		New(noopLogger, noopLogger, jq, authToken).ServeHTTP(rec, req)
 
 		if rec.Code != http.StatusNoContent {
 			t.Errorf("Got %d, expected 204", rec.Code)
@@ -88,4 +118,10 @@ func TestEnqueue(t *testing.T) {
 			t.Error("Got false, expected true")
 		}
 	})
+}
+
+func setAuth(t *testing.T, r *http.Request) {
+	t.Helper()
+
+	r.Header.Set("Authorization", "Token "+authToken)
 }

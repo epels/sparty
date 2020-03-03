@@ -20,6 +20,13 @@ var (
 	infoLog = log.New(os.Stdout, "[INFO]: ", log.LstdFlags|log.Lshortfile)
 )
 
+var (
+	spartyAuthToken     = mustGetenv("SPARTY_AUTH_TOKEN")
+	spotifyClientID     = mustGetenv("SPOTIFY_CLIENT_ID")
+	spotifyClientSecret = mustGetenv("SPOTIFY_CLIENT_SECRET")
+	spotifyRefreshToken = mustGetenv("SPOTIFY_REFRESH_TOKEN")
+)
+
 func main() {
 	// PORT is set by Google App Engine.
 	p := os.Getenv("PORT")
@@ -28,11 +35,7 @@ func main() {
 	}
 	addr := ":" + p
 	jq := jobqueue.NewMemory()
-	sc := spotify.NewClient(
-		mustGetenv("SPOTIFY_CLIENT_ID"),
-		mustGetenv("SPOTIFY_CLIENT_SECRET"),
-		mustGetenv("SPOTIFY_REFRESH_TOKEN"),
-	)
+	sc := spotify.NewClient(spotifyClientID, spotifyClientSecret, spotifyRefreshToken)
 
 	// Channels that can cancel the execution of the daemon.
 	errCh := make(chan error, 2)
@@ -49,6 +52,7 @@ func main() {
 			defer cancel()
 			if err := sc.AddToQueue(ctx, uri); err != nil {
 				errLog.Printf("spotify: Client.AddToQueue: %s", err)
+				return
 			}
 			infoLog.Printf("Enqueued %s", uri)
 		})
@@ -56,7 +60,7 @@ func main() {
 	}()
 
 	// Create the API server and start listening.
-	h := handler.New(errLog, infoLog, jq)
+	h := handler.New(errLog, infoLog, jq, spartyAuthToken)
 	s := http.Server{
 		Addr:    addr,
 		Handler: h,
