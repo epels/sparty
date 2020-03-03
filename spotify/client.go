@@ -3,6 +3,7 @@ package spotify
 
 import (
 	"bytes"
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -47,7 +48,7 @@ func NewClient(cID, cSecret, refreshToken string) *client {
 	}
 }
 
-func (c *client) bearerToken() error {
+func (c *client) bearerToken(ctx context.Context) error {
 	if c.token != nil && c.token.bearer != "" {
 		// Already have a token, so no-op if it doesn't expire in the near
 		// future.
@@ -63,6 +64,7 @@ func (c *client) bearerToken() error {
 	if err != nil {
 		return fmt.Errorf("net/http: NewRequest: %s", err)
 	}
+	req = req.WithContext(ctx)
 	req.Header.Set("Authorization", c.authHeader)
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
@@ -91,8 +93,8 @@ func (c *client) bearerToken() error {
 
 // apiRequest sends a request and gets the response. Data is optional, but if
 // set, it will be JSON encoded and written to the request body.
-func (c *client) apiRequest(method, path string, data interface{}) (*http.Response, error) {
-	if err := c.bearerToken(); err != nil {
+func (c *client) apiRequest(ctx context.Context, method, path string, data interface{}) (*http.Response, error) {
+	if err := c.bearerToken(ctx); err != nil {
 		return nil, fmt.Errorf("bearerToken: %s", err)
 	}
 
@@ -111,6 +113,7 @@ func (c *client) apiRequest(method, path string, data interface{}) (*http.Respon
 	if err != nil {
 		return nil, fmt.Errorf("net/http: NewRequest: %s", err)
 	}
+	req = req.WithContext(ctx)
 	req.Header.Set("Authorization", "Bearer "+c.token.bearer)
 	req.Header.Set("Content-Type", ct)
 
@@ -123,8 +126,8 @@ func (c *client) apiRequest(method, path string, data interface{}) (*http.Respon
 
 // AddToQueue adds an item, defined by uri, to the end of the user's current
 // playback queue.
-func (c *client) AddToQueue(uri string) error {
-	res, err := c.apiRequest(http.MethodPost, "/v1/me/player/add-to-queue?uri="+uri, nil)
+func (c *client) AddToQueue(ctx context.Context, uri string) error {
+	res, err := c.apiRequest(ctx, http.MethodPost, "/v1/me/player/add-to-queue?uri="+uri, nil)
 	if err != nil {
 		return fmt.Errorf("apiRequest: %s", err)
 	}

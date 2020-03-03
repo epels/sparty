@@ -1,6 +1,7 @@
 package spotify
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -38,7 +39,7 @@ func TestBearerToken(t *testing.T) {
 				t.Errorf("Got %q, expected baz", rt[0])
 			}
 
-			_, _ = fmt.Fprintf(w, `{"access_token":"secret","token_type":"Bearer","expires_in":3600,"scope":"user-modify-playback-state"}`)
+			_, _ = fmt.Fprint(w, `{"access_token":"secret","token_type":"Bearer","expires_in":3600,"scope":"user-modify-playback-state"}`)
 		}))
 		defer ts.Close()
 
@@ -47,7 +48,7 @@ func TestBearerToken(t *testing.T) {
 		c.authBaseURL = ts.URL
 		c.nowFunc = func() time.Time { return now }
 
-		if err := c.bearerToken(); err != nil {
+		if err := c.bearerToken(context.Background()); err != nil {
 			t.Fatalf("Got %T (%s), expected nil", err, err)
 		}
 
@@ -81,7 +82,7 @@ func TestBearerToken(t *testing.T) {
 			bearer:    "secret",
 		}
 
-		if err := c.bearerToken(); err != nil {
+		if err := c.bearerToken(context.Background()); err != nil {
 			t.Fatalf("Got %T (%s), expected nil", err, err)
 		}
 	})
@@ -114,7 +115,7 @@ func TestBearerToken(t *testing.T) {
 				t.Errorf("Got %q, expected baz", rt[0])
 			}
 
-			_, _ = fmt.Fprintf(w, `{"access_token":"secret","token_type":"Bearer","expires_in":3600,"scope":"user-modify-playback-state"}`)
+			_, _ = fmt.Fprint(w, `{"access_token":"secret","token_type":"Bearer","expires_in":3600,"scope":"user-modify-playback-state"}`)
 		}))
 		defer ts.Close()
 
@@ -127,7 +128,7 @@ func TestBearerToken(t *testing.T) {
 			expiresAt: now.Add(4 * time.Second),
 		}
 
-		if err := c.bearerToken(); err != nil {
+		if err := c.bearerToken(context.Background()); err != nil {
 			t.Fatalf("Got %T (%s), expected nil", err, err)
 		}
 
@@ -171,11 +172,11 @@ func TestAPIRequest(t *testing.T) {
 		}
 
 		w.WriteHeader(http.StatusCreated)
-		_, _ = fmt.Fprintf(w, "hello")
+		_, _ = fmt.Fprint(w, "hello")
 	}))
 	defer apiTS.Close()
 	authTS := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		_, _ = fmt.Fprintf(w, `{"access_token":"secret","token_type":"Bearer","expires_in":3600,"scope":"user-modify-playback-state"}`)
+		_, _ = fmt.Fprint(w, `{"access_token":"secret","token_type":"Bearer","expires_in":3600,"scope":"user-modify-playback-state"}`)
 	}))
 	defer authTS.Close()
 
@@ -183,7 +184,7 @@ func TestAPIRequest(t *testing.T) {
 	c.apiBaseURL = apiTS.URL
 	c.authBaseURL = authTS.URL
 
-	res, err := c.apiRequest(http.MethodPatch, "/foo?key=val", struct {
+	res, err := c.apiRequest(context.Background(), http.MethodPatch, "/foo?key=val", struct {
 		Foo string `json:"foo"`
 	}{
 		Foo: "bar",
@@ -226,7 +227,7 @@ func TestAddToQueue(t *testing.T) {
 			bearer:    "secret",
 			expiresAt: c.nowFunc().Add(1800 * time.Second),
 		}
-		if err := c.AddToQueue("foo"); err != nil {
+		if err := c.AddToQueue(context.Background(), "foo"); err != nil {
 			t.Errorf("Got %T (%s), expected nil", err, err)
 		}
 		if !called {
@@ -255,7 +256,7 @@ func TestAddToQueue(t *testing.T) {
 			bearer:    "secret",
 			expiresAt: c.nowFunc().Add(1800 * time.Second),
 		}
-		if err := c.AddToQueue("foo"); err == nil {
+		if err := c.AddToQueue(context.Background(), "foo"); err == nil {
 			t.Error("Got nil, expected error")
 		}
 		if !called {
