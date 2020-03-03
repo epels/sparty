@@ -16,7 +16,9 @@ type memory struct {
 var ErrChannelClosed = errors.New("channel was closed")
 
 func NewMemory() *memory {
-	return &memory{ch: make(chan string, 10)}
+	return &memory{
+		ch: make(chan string, 100), // Arbitrary cap.
+	}
 }
 
 func (m *memory) Close() error {

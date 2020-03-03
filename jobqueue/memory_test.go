@@ -8,14 +8,10 @@ import (
 
 func TestConsume(t *testing.T) {
 	mem := NewMemory()
-	if err := mem.Put("foo"); err != nil {
-		t.Errorf("Got %T (%s), expected nil", err, err)
-	}
-	if err := mem.Put("bar"); err != nil {
-		t.Errorf("Got %T (%s), expected nil", err, err)
-	}
-	if err := mem.Put("baz"); err != nil {
-		t.Errorf("Got %T (%s), expected nil", err, err)
+	for _, uri := range []string{"foo", "bar", "baz"} {
+		if err := mem.Put(uri); err != nil {
+			t.Errorf("Got %T (%s), expected nil", err, err)
+		}
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
