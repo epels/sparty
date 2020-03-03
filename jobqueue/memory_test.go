@@ -6,6 +6,19 @@ import (
 	"testing"
 )
 
+func TestClose(t *testing.T) {
+	mem := NewMemory()
+	if err := mem.Close(); err != nil {
+		t.Errorf("Got %T (%s), expected nil", err, err)
+	}
+	err := mem.Consume(context.Background(), func(uri string) {
+		t.Error("Unexpected call to fn")
+	})
+	if !errors.Is(err, ErrChannelClosed) {
+		t.Errorf("Got %T (%s), expected ErrChannelClosed", err, err)
+	}
+}
+
 func TestConsume(t *testing.T) {
 	mem := NewMemory()
 	for _, uri := range []string{"foo", "bar", "baz"} {
