@@ -1,15 +1,18 @@
 package spotify
 
 import (
+	"bytes"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"time"
 )
 
 type client struct {
 	httpc                   *http.Client
+	apiBaseURL              string
 	authBaseURL, authHeader string
 	token                   *token
 
@@ -22,8 +25,8 @@ type token struct {
 	expiresAt time.Time
 }
 
-// If the token expires within this duration, request a new one anyway: this
-// guards against the next request still failing due to an expired token.
+// If the token expires within this duration, apiRequest a new one anyway: this
+// guards against the next apiRequest still failing due to an expired token.
 const expiryThreshold = 5 * time.Second
 
 func NewClient(cID, cSecret string) *client {
@@ -32,6 +35,7 @@ func NewClient(cID, cSecret string) *client {
 		httpc: &http.Client{
 			Timeout: 5 * time.Second,
 		},
+		apiBaseURL:  "https://api.spotify.com",
 		authBaseURL: "https://accounts.spotify.com",
 		authHeader:  ah,
 		nowFunc:     time.Now,
@@ -75,4 +79,34 @@ func (c *client) refreshToken() error {
 		expiresAt: c.nowFunc().Add(time.Duration(data.ExpiresInSecs) * time.Second),
 	}
 	return nil
+}
+
+func (c *client) apiRequest(method, path string, data interface{}) (*http.Response, error) {
+	if err := c.refreshToken(); err != nil {
+		return nil, fmt.Errorf("refreshToken: %s", err)
+	}
+
+	var ct string
+	var rr io.Reader
+	if data != nil {
+		b, err := json.Marshal(data)
+		if err != nil {
+			return nil, fmt.Errorf("encoding/json: Marshal: %s", err)
+		}
+		ct = "application/json"
+		rr = bytes.NewReader(b)
+	}
+
+	req, err := http.NewRequest(method, c.apiBaseURL+path, rr)
+	if err != nil {
+		return nil, fmt.Errorf("net/http: NewRequest: %s", err)
+	}
+	req.Header.Set("Authorization", "Basic "+c.token.bearer)
+	req.Header.Set("Content-Type", ct)
+
+	res, err := c.httpc.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("net/http: Client.Do: %s", err)
+	}
+	return res, nil
 }
