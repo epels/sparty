@@ -1,9 +1,11 @@
 package handler
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
+	"regexp"
 )
 
 // @todo: Add some basic auth.
@@ -18,10 +20,14 @@ type handler struct {
 type jobqueue interface {
 	// Put puts a job into the jobqueue that will, upon consumption by the
 	// worker, enqueue the referenced song in Spotify.
-	Put(url string) error
+	Put(uri string) error
 }
 
-var _ http.Handler = (*handler)(nil) // Compile-time assurance.
+var (
+	_ http.Handler = (*handler)(nil) // Compile-time assurance.
+
+	spotifyURLRe = regexp.MustCompile("^https:\\/\\/open.spotify\\..*\\/track\\/(.*)\\?si=.*$")
+)
 
 func New(errLog, infoLog *log.Logger, jq jobqueue, token string) *handler {
 	h := handler{
@@ -77,11 +83,29 @@ func (h *handler) enqueue(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.jq.Put(url); err != nil {
+	uri, err := parseSpotifyURL(url)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = fmt.Fprintf(w, "Invalid value for parameter: url (%s)\n", url)
+		return
+	}
+
+	if err := h.jq.Put(uri); err != nil {
 		h.errLog.Printf("%T: Put: %s", h.jq, err)
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
 
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// parseSpotifyURL parses a full Spotify URL in the Spotify app's sharing
+// format, e.g. https://open.spotify.com/track/1301WleyT98MSxVHPZCA6M?si=FY7aEiPCT0u3-CuNApJTRg,
+// to its Spotify "URI": spotify:track:1301WleyT98MSxVHPZCA6M.
+func parseSpotifyURL(url string) (string, error) {
+	uriSubs := spotifyURLRe.FindStringSubmatch(url)
+	if len(uriSubs) != 2 {
+		return "", errors.New("url is not a valid Spotify track URL")
+	}
+	return "spotify:track:" + uriSubs[1], nil
 }

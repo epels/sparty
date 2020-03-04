@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 
@@ -36,7 +37,7 @@ func TestEnqueue(t *testing.T) {
 
 	t.Run("Validation error", func(t *testing.T) {
 		rec := httptest.NewRecorder()
-		req := httptest.NewRequest(http.MethodPost, "/enqueue", nil)
+		req := httptest.NewRequest(http.MethodPost, "/enqueue?url=notmatching", nil)
 		setAuth(t, req)
 
 		New(noopLogger, noopLogger, noopJobqueue, authToken).ServeHTTP(rec, req)
@@ -71,8 +72,11 @@ func TestEnqueue(t *testing.T) {
 	})
 
 	t.Run("Jobqueue failure", func(t *testing.T) {
+		vals := url.Values{}
+		vals.Set("url", "https://open.spotify.com/track/1301WleyT98MSxVHPZCA6M?si=FY7aEiPCT0u3-CuNApJTRg")
+
 		rec := httptest.NewRecorder()
-		req := httptest.NewRequest(http.MethodPost, "/enqueue?url=foo", nil)
+		req := httptest.NewRequest(http.MethodPost, "/enqueue?"+vals.Encode(), nil)
 		setAuth(t, req)
 
 		var sb strings.Builder
@@ -93,8 +97,11 @@ func TestEnqueue(t *testing.T) {
 	})
 
 	t.Run("OK", func(t *testing.T) {
+		vals := url.Values{}
+		vals.Set("url", "https://open.spotify.com/track/1301WleyT98MSxVHPZCA6M?si=FY7aEiPCT0u3-CuNApJTRg")
+
 		rec := httptest.NewRecorder()
-		req := httptest.NewRequest(http.MethodPost, "/enqueue?url=foo", nil)
+		req := httptest.NewRequest(http.MethodPost, "/enqueue?"+vals.Encode(), nil)
 		setAuth(t, req)
 
 		var called bool
@@ -102,8 +109,8 @@ func TestEnqueue(t *testing.T) {
 			PutFunc: func(url string) error {
 				called = true
 
-				if url != "foo" {
-					t.Errorf("Got %q, expected foo", url)
+				if url != "spotify:track:1301WleyT98MSxVHPZCA6M" {
+					t.Errorf("Got %q, expected spotify:track:1301WleyT98MSxVHPZCA6M", url)
 				}
 
 				return nil
@@ -124,4 +131,23 @@ func setAuth(t *testing.T, r *http.Request) {
 	t.Helper()
 
 	r.Header.Set("Authorization", "Token "+authToken)
+}
+
+func TestParseSpotifyURL(t *testing.T) {
+	t.Run("Matches", func(t *testing.T) {
+		uri, err := parseSpotifyURL("https://open.spotify.com/track/1301WleyT98MSxVHPZCA6M?si=FY7aEiPCT0u3-CuNApJTRg")
+		if err != nil {
+			t.Fatalf("Got %T (%s), expected nil", err, err)
+		}
+		if uri != "spotify:track:1301WleyT98MSxVHPZCA6M" {
+			t.Errorf("Got %q, expected spotify:track:1301WleyT98MSxVHPZCA6M", uri)
+		}
+	})
+
+	t.Run("No match", func(t *testing.T) {
+		_, err := parseSpotifyURL("https://open.spotify.com/track")
+		if err == nil {
+			t.Fatalf("Got nil, expected error")
+		}
+	})
 }
