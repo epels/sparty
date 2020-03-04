@@ -46,7 +46,7 @@ func New(errLog, infoLog *log.Logger, jq jobqueue, token string) *handler {
 func (h *handler) auth(token string, next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if t := r.Header.Get("Authorization"); t != "Token "+token {
-			h.infoLog.Printf("Failed auth attempt from %q @ %q", r.UserAgent(), r.RemoteAddr)
+			h.infoLog.Printf("Failed auth attempt from %q @ %q", r.UserAgent(), r.Header.Get("X-Forwarded-For"))
 			http.Error(w, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
 			return
 		}
@@ -56,7 +56,7 @@ func (h *handler) auth(token string, next http.HandlerFunc) http.HandlerFunc {
 
 func (h *handler) log(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		h.infoLog.Printf("%s %s (%q @ %q)", r.Method, r.URL, r.UserAgent(), r.RemoteAddr)
+		h.infoLog.Printf("%s %s (%q @ %q)", r.Method, r.URL, r.Header.Get("X-Forwarded-For"), r.RemoteAddr)
 		next(w, r)
 	}
 }
