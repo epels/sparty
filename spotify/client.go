@@ -124,10 +124,10 @@ func (c *client) apiRequest(ctx context.Context, method, path string, data inter
 	return res, nil
 }
 
-// AddToQueue adds an item, defined by url, to the end of the user's current
+// AddToQueue adds an item, defined by uri, to the end of the user's current
 // playback queue.
-func (c *client) AddToQueue(ctx context.Context, url string) error {
-	res, err := c.apiRequest(ctx, http.MethodPost, "/v1/me/player/queue?uri="+url, nil)
+func (c *client) AddToQueue(ctx context.Context, uri string) error {
+	res, err := c.apiRequest(ctx, http.MethodPost, "/v1/me/player/queue?uri="+uri, nil)
 	if err != nil {
 		return fmt.Errorf("apiRequest: %s", err)
 	}
