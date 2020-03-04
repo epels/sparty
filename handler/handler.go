@@ -56,7 +56,7 @@ func (h *handler) auth(token string, next http.HandlerFunc) http.HandlerFunc {
 
 func (h *handler) log(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		h.infoLog.Printf("%s %s (%q @ %q)", r.Method, r.URL, r.Header.Get("X-Forwarded-For"), r.RemoteAddr)
+		h.infoLog.Printf("%s %s (%q @ %q)", r.Method, r.URL, r.UserAgent(), r.Header.Get("X-Forwarded-For"))
 		next(w, r)
 	}
 }
