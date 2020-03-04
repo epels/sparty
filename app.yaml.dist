@@ -1,0 +1,12 @@
+main: ./cmd/spartyd
+runtime: go114
+automatic_scaling:
+  max_instances: 1
+env_variables:
+  SPARTY_AUTH_TOKEN: ""
+  SPOTIFY_CLIENT_ID: ""
+  SPOTIFY_CLIENT_SECRET: ""
+  SPOTIFY_REFRESH_TOKEN: ""
+handlers:
+  - url: /.*
+    script: auto
