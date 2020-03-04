@@ -1,9 +1,9 @@
 package mock
 
 type Jobqueue struct {
-	PutFunc func(uri string) error
+	PutFunc func(url string) error
 }
 
-func (jq Jobqueue) Put(uri string) error {
-	return jq.PutFunc(uri)
+func (jq Jobqueue) Put(url string) error {
+	return jq.PutFunc(url)
 }

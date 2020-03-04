@@ -47,14 +47,14 @@ func main() {
 	defer jqCancel()
 	go func() {
 		infoLog.Print("Starting job worker")
-		err := jq.Consume(jqCtx, func(uri string) {
+		err := jq.Consume(jqCtx, func(url string) {
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()
-			if err := sc.AddToQueue(ctx, uri); err != nil {
+			if err := sc.AddToQueue(ctx, url); err != nil {
 				errLog.Printf("spotify: Client.AddToQueue: %s", err)
 				return
 			}
-			infoLog.Printf("Enqueued %s", uri)
+			infoLog.Printf("Enqueued %s", url)
 		})
 		errCh <- fmt.Errorf("jobqueue: memory.Consume: %s", err)
 	}()

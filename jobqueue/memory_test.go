@@ -11,7 +11,7 @@ func TestClose(t *testing.T) {
 	if err := mem.Close(); err != nil {
 		t.Errorf("Got %T (%s), expected nil", err, err)
 	}
-	err := mem.Consume(context.Background(), func(uri string) {
+	err := mem.Consume(context.Background(), func(url string) {
 		t.Error("Unexpected call to fn")
 	})
 	if !errors.Is(err, ErrChannelClosed) {
@@ -21,28 +21,28 @@ func TestClose(t *testing.T) {
 
 func TestConsume(t *testing.T) {
 	mem := NewMemory()
-	for _, uri := range []string{"foo", "bar", "baz"} {
-		if err := mem.Put(uri); err != nil {
+	for _, url := range []string{"foo", "bar", "baz"} {
+		if err := mem.Put(url); err != nil {
 			t.Errorf("Got %T (%s), expected nil", err, err)
 		}
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	var count int
-	fn := func(uri string) {
+	fn := func(url string) {
 		count++
 		switch count {
 		case 1:
-			if uri != "foo" {
-				t.Errorf("Got %q, expected foo", uri)
+			if url != "foo" {
+				t.Errorf("Got %q, expected foo", url)
 			}
 		case 2:
-			if uri != "bar" {
-				t.Errorf("Got %q, expected bar", uri)
+			if url != "bar" {
+				t.Errorf("Got %q, expected bar", url)
 			}
 		case 3:
-			if uri != "baz" {
-				t.Errorf("Got %q, expected baz", uri)
+			if url != "baz" {
+				t.Errorf("Got %q, expected baz", url)
 			}
 			cancel()
 		default:

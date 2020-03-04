@@ -17,14 +17,14 @@ const authToken = "secret"
 func TestEnqueue(t *testing.T) {
 	noopLogger := log.New(ioutil.Discard, "", 0)
 	noopJobqueue := mock.Jobqueue{
-		PutFunc: func(uri string) error {
+		PutFunc: func(url string) error {
 			return nil
 		},
 	}
 
 	t.Run("Bad method", func(t *testing.T) {
 		rec := httptest.NewRecorder()
-		req := httptest.NewRequest(http.MethodGet, "/enqueue?uri=foo", nil)
+		req := httptest.NewRequest(http.MethodGet, "/enqueue?url=foo", nil)
 		setAuth(t, req)
 
 		New(noopLogger, noopLogger, noopJobqueue, authToken).ServeHTTP(rec, req)
@@ -49,7 +49,7 @@ func TestEnqueue(t *testing.T) {
 	t.Run("Unauthorized", func(t *testing.T) {
 		t.Run("No token", func(t *testing.T) {
 			rec := httptest.NewRecorder()
-			req := httptest.NewRequest(http.MethodPost, "/enqueue?uri=foo", nil)
+			req := httptest.NewRequest(http.MethodPost, "/enqueue?url=foo", nil)
 
 			New(noopLogger, noopLogger, noopJobqueue, authToken).ServeHTTP(rec, req)
 
@@ -59,7 +59,7 @@ func TestEnqueue(t *testing.T) {
 		})
 		t.Run("Incorrect token", func(t *testing.T) {
 			rec := httptest.NewRecorder()
-			req := httptest.NewRequest(http.MethodPost, "/enqueue?uri=foo", nil)
+			req := httptest.NewRequest(http.MethodPost, "/enqueue?url=foo", nil)
 			req.Header.Set("Authorization", "Token bad")
 
 			New(noopLogger, noopLogger, noopJobqueue, authToken).ServeHTTP(rec, req)
@@ -72,13 +72,13 @@ func TestEnqueue(t *testing.T) {
 
 	t.Run("Jobqueue failure", func(t *testing.T) {
 		rec := httptest.NewRecorder()
-		req := httptest.NewRequest(http.MethodPost, "/enqueue?uri=foo", nil)
+		req := httptest.NewRequest(http.MethodPost, "/enqueue?url=foo", nil)
 		setAuth(t, req)
 
 		var sb strings.Builder
 		errLog := log.New(&sb, "", log.LstdFlags)
 		jq := mock.Jobqueue{
-			PutFunc: func(uri string) error {
+			PutFunc: func(url string) error {
 				return errors.New("some error")
 			},
 		}
@@ -94,16 +94,16 @@ func TestEnqueue(t *testing.T) {
 
 	t.Run("OK", func(t *testing.T) {
 		rec := httptest.NewRecorder()
-		req := httptest.NewRequest(http.MethodPost, "/enqueue?uri=foo", nil)
+		req := httptest.NewRequest(http.MethodPost, "/enqueue?url=foo", nil)
 		setAuth(t, req)
 
 		var called bool
 		jq := mock.Jobqueue{
-			PutFunc: func(uri string) error {
+			PutFunc: func(url string) error {
 				called = true
 
-				if uri != "foo" {
-					t.Errorf("Got %q, expected foo", uri)
+				if url != "foo" {
+					t.Errorf("Got %q, expected foo", url)
 				}
 
 				return nil

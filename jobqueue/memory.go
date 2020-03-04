@@ -9,7 +9,7 @@ import (
 // facilitating fast acceptance at the API level. It does not provide any other
 // "fancy" features like delays and retries.
 type memory struct {
-	consumer func(uri string)
+	consumer func(url string)
 	ch       chan string
 }
 
@@ -29,19 +29,19 @@ func (m *memory) Close() error {
 // Consume will watch the memory jobqueue for new jobs, and pass them on to fn
 // as they become available. Invocation blocks until the context is cancelled:
 // then, the context error is returned.
-func (m *memory) Consume(ctx context.Context, fn func(uri string)) error {
+func (m *memory) Consume(ctx context.Context, fn func(url string)) error {
 	for {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
-		case uri, ok := <-m.ch:
+		case url, ok := <-m.ch:
 			if !ok {
 				return ErrChannelClosed
 			}
 			// Block on fn so order is guaranteed and we won't flood the
 			// Spotify Web API. This won't impose performance bottlenecks as
 			// long as we're not going multi-tenant.
-			fn(uri)
+			fn(url)
 		}
 	}
 }
@@ -49,7 +49,7 @@ func (m *memory) Consume(ctx context.Context, fn func(uri string)) error {
 // Put enqueues a job. At the moment this never returns a non-nil error, but
 // return an error nonetheless to ease a potential migration towards a more
 // sophisticated jobqueue backend.
-func (m *memory) Put(uri string) error {
-	m.ch <- uri
+func (m *memory) Put(url string) error {
+	m.ch <- url
 	return nil
 }

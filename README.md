@@ -7,10 +7,10 @@ Spotify Party! Let your friends add Spotify songs to your queue from their own d
 This project exposes a very basic API with just a single endpoint: `POST /enqueue`:
 
 ```bash
-curl -H "Authorization: Token <token>" -X "POST" "http://localhost:8080/enqueue?uri=spotify:track:1301WleyT98MSxVHPZCA6M
+curl -H "Authorization: Token <token>" -X "POST" "http://localhost:8080/enqueue?url=spotify:track:1301WleyT98MSxVHPZCA6M
 ``` 
 
-The `uri` can be obtained from Spotify, for example by performing a [search](https://developer.spotify.com/documentation/web-api/reference/search/search/).
+The `url` can be obtained from Spotify, for example by performing a [search](https://developer.spotify.com/documentation/web-api/reference/search/search/).
 
 Once `spartyd` receives this request, it does some very basic valiation and responds with a `204 No Content`. The endpoint does NOT make a request to the Spotify Web API directly: it only accepts it for delivery. A job is created, and a worker will pick this up to actually send it over to Spotify.    
 

@@ -18,7 +18,7 @@ type handler struct {
 type jobqueue interface {
 	// Put puts a job into the jobqueue that will, upon consumption by the
 	// worker, enqueue the referenced song in Spotify.
-	Put(uri string) error
+	Put(url string) error
 }
 
 var _ http.Handler = (*handler)(nil) // Compile-time assurance.
@@ -65,19 +65,19 @@ func (h *handler) method(m string, next http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
-// enqueue accepts a song by its Spotify URI and sticks a job into the jobqueue
+// enqueue accepts a song by its Spotify url and sticks a job into the jobqueue
 // to actually send it over to the Spotify Web API. Handler responds with a 204
 // if the song is accepted for delivery, but this does not guarantee it will
 // actually play.
 func (h *handler) enqueue(w http.ResponseWriter, r *http.Request) {
-	uri := r.URL.Query().Get("uri")
-	if uri == "" {
+	url := r.URL.Query().Get("url")
+	if url == "" {
 		w.WriteHeader(http.StatusBadRequest)
-		_, _ = fmt.Fprintln(w, "Missing required parameter: uri")
+		_, _ = fmt.Fprintln(w, "Missing required parameter: url")
 		return
 	}
 
-	if err := h.jq.Put(uri); err != nil {
+	if err := h.jq.Put(url); err != nil {
 		h.errLog.Printf("%T: Put: %s", h.jq, err)
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
