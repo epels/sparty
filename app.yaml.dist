@@ -8,5 +8,5 @@ env_variables:
   SPOTIFY_CLIENT_SECRET: ""
   SPOTIFY_REFRESH_TOKEN: ""
 handlers:
-  - url: /.*
+  - url: /enqueue
     script: auto
